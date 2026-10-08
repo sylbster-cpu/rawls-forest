@@ -672,6 +672,9 @@ async function tryExit(){if(state.lockDoor){state.y=Math.min(state.y,room.H-64);
 const setSign=(id,t)=>{const e=ent(id);if(!e)return;e.label=t;const s=e.el.querySelector('.sign');if(s)s.textContent=t};
 async function leaveTo(id){await fade(()=>{const[x,y]=B_POS[id];loadRoom('island',x,y+46,'down')})}
 
+/* 시스템 알림: 화면 위에 두 줄까지 4초 남짓 뜬다. 섬으로 나와 학생이 직접 찾아가야 할 때, 놓치면 안 되는 규칙(엔딩 조건)에만 쓴다 */
+const sysNote=(t,ms=4200)=>toast('📢 '+t,ms,'sys');
+
 /* ================= 1인칭 화면(내 눈으로 본 모습) ================= */
 const povTag=t=>`<span class="povTag">${t}</span>`;
 function pov(o){return `<div class="pov camIn ${o.veiled?'veiled':''} ${o.out?'out':''}" id="pov">${povTag(o.tag||'👁 내 눈으로')}${o.row?`<div class="povRow">${o.row}</div>`:''}${o.table?'<div class="povTable"></div>':''}${o.card?`<div class="povCard">${o.cardTitle?`<i class="povCardT">${o.cardTitle}</i>`:''}${o.card.map(([k,v])=>`<div><b>${k}</b><span class="val">${v}</span></div>`).join('')}</div>`:''}${o.extra||''}<div class="povHands">${o.hands||'🤲'}</div><div class="povVeil ${o.veiled?'on':''}" id="povVeil"></div></div>`}
@@ -684,7 +687,7 @@ async function sitDown(){panel(pov({row:headRow(5,human({veil:1,shirt:'#cfd6de',
  await talk(S('의장','손에 든 카드를 보세요. 여러분이 어떤 사람으로 태어날지는 아직 정해지지 않았습니다. 규칙은 그 전에 정합니다.'));await btn('베일 쓰기','veilOn');clearInterval(fl);pfoot('');$('#povVeil').classList.add('on');await sleep(850);$$('#pov .val').forEach(v=>v.textContent='???');$('#pov').classList.add('veiled');
  await talk(N('베일을 쓰자 카드의 글자가 모두 흐려졌습니다. 사회에 관한 일반 지식은 그대로 압니다.'),T('부자일까, 가난할까? 남이 얼마나 갖든 신경 안 써. 질투도 없어. 내 몫만 넉넉하면 좋겠어.'));await btn('일어나기','stand');closePanel();
  state.stage[0]='ballot';['bA','bB','bC'].forEach(id=>{const b=ent(id);b.hidden=false;b.el.classList.add('popIn')});buildGrid();
- await talk(S('의장','앞에 놓인 세 투표함을 살펴보고, 하나를 골라 서명하세요.'),N('숫자는 갑·을·병 세 사람이 받을 몫이고, 그대로 한 달 생활비가 됩니다.'),T('나는 셋 중 누가 될까? 모르는 채로 하나를 골라야 해.'));setQuest('투표함을 살펴보고 한 곳에 서명하세요',['bA','bB','bC']);toast('📢 사회 A·B·C 중 어떤 사회에서 살지 고르세요. 투표함에 다가가 살펴보세요.',4200,'sys')}
+ await talk(S('의장','앞에 놓인 세 투표함을 살펴보고, 하나를 골라 서명하세요.'),N('숫자는 갑·을·병 세 사람이 받을 몫이고, 그대로 한 달 생활비가 됩니다.'),T('나는 셋 중 누가 될까? 모르는 채로 하나를 골라야 해.'));setQuest('투표함을 살펴보고 한 곳에 서명하세요',['bA','bB','bC']);sysNote('사회 A·B·C 중 어떤 사회에서 살지 고르세요. 투표함에 다가가 살펴보세요.')}
 const socCard=(k,sel)=>{const s=SOC[k];return `<button class="soc ${sel===k?'sel':''}" data-p="${k}" data-v="${k}"><h4>사회 ${k}</h4><div class="shares">${s.map((n,i)=>`<div class="share"><b>${n}</b><i style="height:${n*4}px"></i><span>${ROLE[i]}</span></div>`).join('')}</div><div class="total">합계<b>${sum(s)}</b></div></button>`};
 async function policyPanel(sel){for(;;){panel(`<div class="veilEdge"></div><div class="societies">${['A','B','C'].map(k=>socCard(k,sel)).join('')}</div><div class="tapHint">세 사회의 숫자는 수업 자료의 비교 예시입니다. 다른 사회를 눌러 비교할 수 있습니다.</div>`,`<div class="actions"><button class="secondary" data-v="close">더 둘러보기</button><button class="primary" id="sign" data-v="sign">사회 ${sel} 규칙에 서명</button></div>`,{title:'👁 베일 속에서'});const v=await pick();if(v==='close'){closePanel();return}if(v==='sign')break;sel=v}
  state.choices.policy=sel;state.stage[0]='signed';panel(`<div class="veilEdge"></div><div class="signStage camIn"><div class="signDoc"><span class="ic">📜</span><b>용인시티 헌법</b><span>나눔 규칙: 사회 ${sel} (${SOC[sel].join(' · ')})</span></div><div class="stamp">서명</div></div>`);
@@ -706,7 +709,7 @@ async function birthScene(){const p=state.choices.policy;panel(pov({row:`<span c
  await talk(N(`사회 ${p}에서 ${NE()} <b>${ROLE[who]}</b>의 자리입니다. 한 달 몫은 <b>${SOC[p][who]}</b>입니다.`),T(rankThought(p,who)));await btn('한 달 살아 보기','goLive');closePanel();
  state.coins=0;renderStats();await talk(S('주민센터 직원',`이번 달 생활비 ● ${SOC[p][who]}개입니다. 주머니에 넣어 드릴게요.`));await coinsIn(SOC[p][who]);
  await talk(S('주민센터 직원','먼저 집 앞 우편함에 월세를 넣으세요. 남은 돈을 어디에 쓸지는 직접 정합니다. 학교, 병원, 공원은 섬 남쪽에 있어요.'),N('일 하나에 ● 1개가 드는 것은 게임 설정입니다.'));
- state.month={p,who,res:{home:false,school:false,clinic:false,rest:false,left:0},locked:{},over:false};state.stage[1]='month';state.lockDoor=false;setQuest('집 앞 우편함에 월세를 넣으세요','e_mail');await leaveTo('b_civic')}
+ state.month={p,who,res:{home:false,school:false,clinic:false,rest:false,left:0},locked:{},over:false};state.stage[1]='month';state.lockDoor=false;setQuest('집 앞 우편함에 월세를 넣으세요','e_mail');await leaveTo('b_civic');sysNote('한 달 살기: 집 앞 우편함에 월세부터 내고, 남은 돈을 쓸 곳을 고르세요.')}
 /* 동전: 주머니(화면 위 ● 표시)와 장소 사이를 날아다닌다 */
 function flyCoin(a,b,ch='●'){return new Promise(r=>{if(RM){r();return}const c=document.createElement('span');c.className='flyCoin';c.textContent=ch;c.style.left=a[0]+'px';c.style.top=a[1]+'px';document.body.appendChild(c);const an=c.animate([{transform:'translate(0,0)'},{transform:`translate(${(b[0]-a[0])/2}px,${(b[1]-a[1])/2-40}px) scale(1.2)`},{transform:`translate(${b[0]-a[0]}px,${b[1]-a[1]}px) scale(.6)`,opacity:.4}],{duration:560,easing:'ease-in-out'});an.onfinish=()=>{c.remove();r()}})}
 const chipPos=()=>{const r=$('#coinChip').getBoundingClientRect();return[r.left+10,r.top+4]};
@@ -731,7 +734,7 @@ async function payAt(k){const m=state.month,who=`한 달 살기 · ${ROLE[m.who]
  if(state.coins===0&&rest.length){await talk(S(L[0],L[1]),T(L[3]));const first=['clinic','school','rest'].find(r=>rest.includes(r));await talk(S(LINES[first][0],LINES[first][2]));await povFlash(first);rest.forEach(r=>{m.locked[r]=true;markPlace(r,'locked')});await talk(N(`돈이 다 떨어졌습니다. 남은 일을 포기합니다: ${rest.map(r=>PLACE_NAME[r]).join(', ')}.`),T(LINES[first][4]));monthOver()}
  else if(!rest.length){await talk(N(state.coins?`할 일을 모두 하고 ● ${state.coins}개가 남았습니다. 남은 돈은 저축합니다.`:'할 일을 모두 했고, 남은 돈은 없습니다.'),T(state.coins?'이번 달은 여유가 있네.':'빠듯하지만 버틸 만해.'));monthOver()}
  else{await talk(S(L[0],`${L[1]} <span class="muted">· 남은 돈 ● ${state.coins}</span>`),T(L[3]));setQuest('돈을 쓸 곳을 골라 가세요',rest.map(r=>PLACE_ENT[r]))}}
-function monthOver(){const m=state.month;m.over=true;m.res.left=state.coins;setQuest('주민센터로 돌아가 한 달을 마무리하세요','b_civic')}
+function monthOver(){const m=state.month;m.over=true;m.res.left=state.coins;setQuest('주민센터로 돌아가 한 달을 마무리하세요','b_civic');sysNote('이번 달이 끝났어요. 주민센터로 돌아가 한 달을 마무리하세요.')}
 const PLACES=[['home','🏠','집','월세'],['school','📚','학교','강의 등록'],['clinic','🏥','병원','감기 치료'],['rest','🌳','쉬는 날','일당 포기']],SHORT={home:'월세',school:'강의',clinic:'치료',rest:'휴식'};
 function statusRow(res){return `<div class="statusRow">${PLACES.map(([k,ic])=>`<span class="st ${res[k]?'':'x'}">${ic}<small>${SHORT[k]}</small></span>`).join('')}</div>`}
 async function reportScene(){const m=state.month,p=m.p,who=m.who,res=m.res;state.choices.month=res;const lost=[['school','강의 등록'],['clinic','감기 치료'],['rest','쉬는 하루']].filter(([k])=>!res[k]).map(x=>x[1]);const mood=lost.length>=2||!res.clinic?'😣':lost.length?'😐':res.left>=3?'😄':'🙂';let a,b,th;
@@ -775,7 +778,7 @@ async function finishMission(i){const bs=missionBadges[i],br=bridges[i];const bo
  await btn(i<6?`섬으로 나가 ${RO(quests[i+1])} 가기`:'섬으로 나가 박물관 가기','backMap');closePanel();
  bs.forEach(b=>{if(!state.pocket.concepts.includes(b)&&!state.donated.includes(b))state.pocket.concepts.push(b)});state.mission=i+1;state.lockDoor=false;renderStats();
  if(i<6)setQuest(`${RO(quests[i+1])} 가세요${state.veiled?' · 아직 베일을 쓴 채':''}`,QB[i+1]);else setQuest('박물관에 개념 조각을 기증하세요','b_museum');
- await leaveTo(ROOM_B[state.room]);if(bs.length)toast(`🎒 개념 조각 ${bs.length}개 · 박물관에 기증할 수 있어요`,2400)}
+ await leaveTo(ROOM_B[state.room]);if(i>=6)sysNote(`이야기를 모두 마쳤어요. 박물관에 개념 조각 ${badgeData.length}개를 모두 기증하면 엔딩이 열려요.`);else sysNote(bs.length?`개념 조각 ${bs.length}개는 박물관에 기증할 수 있어요. 다음 목적지: ${quests[i+1]}`:`다음 목적지: ${quests[i+1]} · ▼ 표시를 따라가세요.`)}
 
 /* ================= 2: 헌법재판소 — 돈과 자유 → 몇 달 뒤 광장 → 시험 → 순서 ================= */
 async function courtEnter(){const st=state.stage[2];if(!st){state.lockDoor=true;await talk(N('헌법재판소에 투자자가 찾아왔습니다.'));state.stage[2]='offer';setQuest('투자자의 이야기를 들어 보세요','v_fox')}else if(st==='exam'){state.lockDoor=true;await talk(S('재판관','다시 오셨군요. 이번에는 입학 시험 이야기입니다.'));setQuest('재판관에게 말을 거세요','v_judge')}}
@@ -788,9 +791,9 @@ function applyCity(c){$$('#towers .tw').forEach((t,i)=>t.style.height=(c==='trad
 async function freedomOutcome(c){state.choices.freedom=c;const inc=c==='trade'?92:58;
  panel(`${strip()}<div class="gauges"><div class="gauge"><b>도시 소득</b><div class="gbar"><i id="incomeBar" style="width:40%"></i></div><span>${inc}</span></div></div><div class="recChip">🗣️ 광장 모임·공장 기사: <b>${c==='trade'?'금지':'가능'}</b></div>`,'',{title:'🎥 밖에서 보기'});setTimeout(()=>{applyCity(c);$('#incomeBar').style.width=inc+'%'},120);
  await talk(c==='trade'?N('투자가 들어와 빌딩이 올라갑니다.'):N('투자 일부를 놓쳤습니다.'),c==='trade'?N('광장에는 출입 금지선이 생겼고, 신문의 공장 기사는 지워졌습니다.'):N('광장과 신문은 그대로입니다.'));await btn('몇 달 뒤…','later');closePanel();
- await talk(N('몇 달 뒤, 공장 야근이 늘고 안전 장비가 모자라다는 소문이 돕니다.'),N(`${NE()} 광장에 가서 이 문제를 알리기로 합니다.`));state.stage[2]='plaza';state.lockDoor=false;await fade(()=>loadRoom('island',720,1300,'up'));setQuest('광장으로 가세요',c==='trade'?['e_barrier','e_barrierN','e_coneW2','e_coneE2']:'e_fountain')}
+ await talk(N('몇 달 뒤, 공장 야근이 늘고 안전 장비가 모자라다는 소문이 돕니다.'),N(`${NE()} 광장에 가서 이 문제를 알리기로 합니다.`));state.stage[2]='plaza';state.lockDoor=false;await fade(()=>loadRoom('island',720,1300,'up'));setQuest('광장으로 가세요',c==='trade'?['e_barrier','e_barrierN','e_coneW2','e_coneE2']:'e_fountain');sysNote('몇 달 뒤입니다. 광장에 가서 무슨 일이 있는지 보세요.')}
 function povPlaza(trade){return pov({out:1,hands:trade?'🪧':'📢',extra:trade?'<div class="povBarrier">🚧🚧🚧🚧</div><div class="povSign red">집회 금지 구역</div><div class="povSide">⬛⬛ 기사 삭제</div>':'<div class="povCrowd">🧑‍🤝‍🧑📢🧑‍🤝‍🧑📢🧑‍🤝‍🧑</div><div class="povSign">공장 안전 장비를 갖춰라!</div><div class="povSide">📰 안전 장비 보강 약속</div>'})}
-async function plazaVisit(){const trade=state.choices.freedom==='trade';panel(povPlaza(trade),'',{title:'광장에 왔습니다'});if(trade)await talk(N('광장은 막혀 있고, 신문에도 실리지 않습니다.'),T('월급은 조금 올랐는데… 말할 곳이 없어. 돈으로 이걸 되찾을 수 있을까?'));else await talk(N('사람들이 모이고 신문에 실리자, 공장이 안전 장비를 고치겠다고 약속했습니다.'),T('말할 수 있으니까 바꿀 수 있었어.'));await btn('무엇을 본 걸까?','goPlaza');await cards([PLAZA_CARD(trade)],'다음 사건: 입학 시험');closePanel();state.stage[2]='exam';setQuest('헌법재판소로 돌아가세요','b_court')}
+async function plazaVisit(){const trade=state.choices.freedom==='trade';panel(povPlaza(trade),'',{title:'광장에 왔습니다'});if(trade)await talk(N('광장은 막혀 있고, 신문에도 실리지 않습니다.'),T('월급은 조금 올랐는데… 말할 곳이 없어. 돈으로 이걸 되찾을 수 있을까?'));else await talk(N('사람들이 모이고 신문에 실리자, 공장이 안전 장비를 고치겠다고 약속했습니다.'),T('말할 수 있으니까 바꿀 수 있었어.'));await btn('무엇을 본 걸까?','goPlaza');await cards([PLAZA_CARD(trade)],'다음 사건: 입학 시험');closePanel();state.stage[2]='exam';setQuest('헌법재판소로 돌아가세요','b_court');sysNote('헌법재판소로 돌아가 입학 시험 이야기를 이어 가세요.')}
 /* 플레이어가 빠듯한 집(또는 넉넉한 집)에서 태어났다면 그 줄의 학생이 바로 '나' */
 function myLane(){const s=state.choices.birth?state.choices.birth.social[2]:1;return s===0?'poor':s===2?'rich':null}
 function lanes(){const me=myLane();return `<div class="opportunity">${[['넉넉한 집','rich'],['빠듯한 집','poor']].map(([lb,id])=>`<div class="studentLane ${me===id?'mineLane':''}"><span class="laneLabel">${lb}${me===id?' · 나':''} · 재능 ★★★ · 의지 ★★★</span><span class="prep" id="prep_${id}">📚<small>시험 준비</small></span><span class="gate2">🏫<small>입학 시험</small></span><span class="goal">🏆</span><span class="student" id="st_${id}">${me===id?myFace():`<span class="sprite">${animal(id==='rich'?'rabbit':'cat')}</span>`}</span></div>`).join('')}</div>`}
